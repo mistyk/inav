@@ -103,7 +103,8 @@
 #define PG_DISPLAY_CONFIG 1013
 #define PG_LIGHTS_CONFIG 1014
 #define PG_PINIOBOX_CONFIG 1015
-#define PG_INAV_END 1015
+#define PG_LOG_CONFIG 1016
+#define PG_INAV_END 1016
 
 // OSD configuration (subject to change)
 //#define PG_OSD_FONT_CONFIG 2047
