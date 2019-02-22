@@ -74,7 +74,7 @@ tables:
   - name: debug_modes
     values: ["NONE", "GYRO", "NOTCH", "NAV_LANDING", "FW_ALTITUDE", "AGL", "FLOW_RAW",
       "FLOW", "SBUS", "FPORT", "ALWAYS", "STAGE2", "WIND_ESTIMATOR", "SAG_COMP_VOLTAGE",
-      "VIBE", "CRUISE", "REM_FLIGHT_TIME", "SMARTAUDIO","ACC"]
+      "VIBE", "CRUISE", "REM_FLIGHT_TIME", "SMARTAUDIO", "ACC", "GENERIC"]
   - name: async_mode
     values: ["NONE", "GYRO", "ALL"]
   - name: aux_operator
@@ -309,6 +309,10 @@ groups:
       - name: baro_median_filter
         field: use_median_filtering
         type: bool
+      - name: baro_cal_tolerance
+        field: baro_calibration_tolerance
+        min: 0
+        max: 1000
 
   - name: PG_PITOTMETER_CONFIG
     type: pitotmeterConfig_t
@@ -1597,6 +1601,24 @@ groups:
         field: neg_alt_alarm
         min: 0
         max: 10000
+      - name: osd_imu_temp_alarm_min
+        field: imu_temp_alarm_min
+        min: -550
+        max: 1250
+      - name: osd_imu_temp_alarm_max
+        field: imu_temp_alarm_max
+        min: -550
+        max: 1250
+      - name: osd_baro_temp_alarm_min
+        field: baro_temp_alarm_min
+        condition: USE_BARO
+        min: -550
+        max: 1250
+      - name: osd_baro_temp_alarm_max
+        field: baro_temp_alarm_max
+        condition: USE_BARO
+        min: -550
+        max: 1250
 
       - name: osd_artificial_horizon_reverse_roll
         field: ahi_reverse_roll

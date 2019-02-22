@@ -356,8 +356,20 @@ static const blackboxSimpleFieldDefinition_t blackboxSlowFields[] = {
     {"wind",                   0, SIGNED,   PREDICT(0),      ENCODING(UNSIGNED_VB)},
     {"wind",                   1, SIGNED,   PREDICT(0),      ENCODING(UNSIGNED_VB)},
     {"wind",                   2, SIGNED,   PREDICT(0),      ENCODING(UNSIGNED_VB)},
-    {"temperature",           -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
-    {"temperatureSource",     -1, UNSIGNED, PREDICT(0),      ENCODING(UNSIGNED_VB)},
+    {"IMUTemperature",        -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+#ifdef USE_BARO
+    {"baroTemperature",       -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+#endif
+#ifdef USE_TEMPERATURE_SENSOR
+    {"sens0Temp",             -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+    {"sens1Temp",             -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+    {"sens2Temp",             -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+    {"sens3Temp",             -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+    {"sens4Temp",             -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+    {"sens5Temp",             -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+    {"sens6Temp",             -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+    {"sens7Temp",             -1, SIGNED,   PREDICT(0),      ENCODING(SIGNED_VB)},
+#endif
 };
 
 typedef enum BlackboxState {
@@ -448,7 +460,7 @@ typedef struct blackboxGpsState_s {
 // This data is updated really infrequently:
 typedef struct blackboxSlowState_s {
     uint32_t flightModeFlags; // extend this data size (from uint16_t)
-    uint8_t stateFlags;
+    uint32_t stateFlags;
     uint8_t failsafePhase;
     bool rxSignalReceived;
     bool rxFlightChannelsValid;
@@ -456,8 +468,13 @@ typedef struct blackboxSlowState_s {
     uint16_t powerSupplyImpedance;
     uint16_t sagCompensatedVBat;
     int16_t wind[XYZ_AXIS_COUNT];
-    int16_t temperature;
-    uint8_t temperatureSource;
+    int16_t imuTemperature;
+#ifdef USE_BARO
+    int16_t baroTemperature;
+#endif
+#ifdef USE_TEMPERATURE_SENSOR
+    int16_t tempSensorTemperature[MAX_TEMP_SENSORS];
+#endif
 } __attribute__((__packed__)) blackboxSlowState_t; // We pack this struct so that padding doesn't interfere with memcmp()
 
 //From rc_controls.c
@@ -1045,8 +1062,15 @@ static void writeSlowFrame(void)
 
     blackboxWriteSigned16VBArray(slowHistory.wind, XYZ_AXIS_COUNT);
 
-    blackboxWriteSignedVB(slowHistory.temperature);
-    blackboxWriteUnsignedVB(slowHistory.temperatureSource);
+    blackboxWriteSignedVB(slowHistory.imuTemperature);
+
+#ifdef USE_BARO
+    blackboxWriteSignedVB(slowHistory.baroTemperature);
+#endif
+
+#ifdef USE_TEMPERATURE_SENSOR
+    blackboxWriteSigned16VBArray(slowHistory.tempSensorTemperature, MAX_TEMP_SENSORS);
+#endif
 
     blackboxSlowFrameIterationTimer = 0;
 }
@@ -1078,10 +1102,23 @@ static void loadSlowState(blackboxSlowState_t *slow)
 #else
         slow->wind[i] = 0;
 #endif
-
-    slow->temperature = (int) getCurrentTemperature() * 10;
-    slow->temperatureSource = getCurrentTemperatureSensorUsed();
     }
+
+    bool valid_temp;
+    valid_temp = getIMUTemperature(&slow->imuTemperature);
+    if (!valid_temp) slow->imuTemperature = TEMPERATURE_INVALID_VALUE;
+
+#ifdef USE_BARO
+    valid_temp = getBaroTemperature(&slow->baroTemperature);
+    if (!valid_temp) slow->baroTemperature = TEMPERATURE_INVALID_VALUE;
+#endif
+
+#ifdef USE_TEMPERATURE_SENSOR
+    for (uint8_t index; index < MAX_TEMP_SENSORS; ++index) {
+        valid_temp = getSensorTemperature(index, slow->tempSensorTemperature + index);
+        if (!valid_temp) slow->tempSensorTemperature[index] = TEMPERATURE_INVALID_VALUE;
+    }
+#endif
 
 }
 
@@ -1297,7 +1334,6 @@ static void loadMainState(timeUs_t currentTimeUs)
 #endif
 #ifdef USE_NAV
         if (!STATE(FIXED_WING)) {
-
             // log requested velocity in cm/s
             blackboxCurrent->mcPosAxisP[i] = lrintf(nav_pids->pos[i].output_constrained);
 
@@ -1306,7 +1342,7 @@ static void loadMainState(timeUs_t currentTimeUs)
             blackboxCurrent->mcVelAxisPID[1][i] = lrintf(nav_pids->vel[i].integral);
             blackboxCurrent->mcVelAxisPID[2][i] = lrintf(nav_pids->vel[i].derivative);
             blackboxCurrent->mcVelAxisPID[3][i] = lrintf(nav_pids->vel[i].feedForward);
-
+            blackboxCurrent->mcVelAxisOutput[i] = lrintf(nav_pids->vel[i].output_constrained);
         }
 #endif
     }
